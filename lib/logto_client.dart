@@ -17,6 +17,7 @@ import 'logto_core.dart' as logto_core;
 export '/src/exceptions/logto_auth_exceptions.dart';
 export '/src/interfaces/logto_interfaces.dart';
 export '/src/utilities/constants.dart';
+export '/src/modules/logto_storage_strategy.dart';
 
 /**
  * LogtoClient
