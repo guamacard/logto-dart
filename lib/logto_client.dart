@@ -9,6 +9,7 @@ import '/src/interfaces/logto_interfaces.dart';
 import '/src/modules/id_token.dart';
 import '/src/modules/logto_storage_strategy.dart';
 import '/src/modules/pkce.dart';
+import '/src/modules/sign_in_session.dart';
 import '/src/modules/token_storage.dart';
 import '/src/utilities/constants.dart';
 import '/src/utilities/utils.dart' as utils;
@@ -18,6 +19,8 @@ export '/src/exceptions/logto_auth_exceptions.dart';
 export '/src/interfaces/logto_interfaces.dart';
 export '/src/utilities/constants.dart';
 export '/src/modules/logto_storage_strategy.dart';
+export '/src/modules/pkce.dart';
+export '/src/modules/sign_in_session.dart';
 
 /**
  * LogtoClient
@@ -90,6 +93,19 @@ class LogtoClient {
     _oidcConfig = await logto_core.fetchOidcConfig(httpClient, discoveryUri);
 
     return _oidcConfig!;
+  }
+
+  /// Get the OIDC provider configuration.
+  ///
+  /// Fetches and caches the OIDC discovery document from the Logto endpoint.
+  /// Useful when you need direct access to endpoints (e.g., for custom WebView flows).
+  Future<OidcProviderConfig> getOidcConfig() async {
+    final httpClient = _httpClient ?? http.Client();
+    try {
+      return await _getOidcConfig(httpClient);
+    } finally {
+      if (_httpClient == null) httpClient.close();
+    }
   }
 
   // Get the access token by resource indicator or organizationId.
@@ -343,6 +359,243 @@ class LogtoClient {
       if (_httpClient == null) {
         httpClient.close();
       }
+    }
+  }
+
+  // ============ Custom WebView Sign-In Flow ============
+
+  /// Prepare a sign-in session for use with a custom WebView.
+  ///
+  /// This method generates the authorization URL, PKCE parameters, and state
+  /// without opening a browser. Load [SignInSession.signInUri] in your WebView,
+  /// then intercept the redirect to [redirectUri] and pass the callback URI
+  /// to [completeSignIn].
+  ///
+  /// Example:
+  /// ```dart
+  /// final session = await logtoClient.prepareSignIn(
+  ///   'com.example.app://callback',
+  ///   loginHint: 'user@example.com',
+  /// );
+  /// // Load session.signInUri in your WebView
+  /// ```
+  Future<SignInSession> prepareSignIn(
+    String redirectUri, {
+    logto_core.InteractionMode? interactionMode,
+    String? loginHint,
+    String? directSignIn,
+    FirstScreen? firstScreen,
+    List<IdentifierType>? identifiers,
+    Map<String, String>? extraParams,
+  }) async {
+    if (_loading) {
+      throw LogtoAuthException(
+          LogtoAuthExceptions.isLoadingError, 'Already signing in...');
+    }
+
+    final httpClient = _httpClient ?? http.Client();
+
+    try {
+      _loading = true;
+      final pkce = PKCE.generate();
+      final state = utils.generateRandomString();
+      final oidcConfig = await _getOidcConfig(httpClient);
+
+      final signInUri = logto_core.generateSignInUri(
+        authorizationEndpoint: oidcConfig.authorizationEndpoint,
+        clientId: config.appId,
+        redirectUri: redirectUri,
+        codeChallenge: pkce.codeChallenge,
+        state: state,
+        resources: config.resources,
+        scopes: config.scopes,
+        interactionMode: interactionMode,
+        loginHint: loginHint,
+        firstScreen: firstScreen,
+        directSignIn: directSignIn,
+        identifiers: identifiers,
+        extraParams: extraParams,
+      );
+
+      return SignInSession(
+        pkce: pkce,
+        state: state,
+        signInUri: signInUri,
+        redirectUri: redirectUri,
+      );
+    } finally {
+      if (_httpClient == null) httpClient.close();
+    }
+  }
+
+  /// Complete a sign-in flow started with [prepareSignIn].
+  ///
+  /// Call this method when your WebView intercepts a navigation to the
+  /// redirect URI. This will:
+  /// 1. Verify the callback URI and extract the authorization code
+  /// 2. Exchange the code for tokens
+  /// 3. Verify the ID token signature and claims
+  /// 4. Store all tokens in the SDK's token storage
+  ///
+  /// After this method completes successfully, [isAuthenticated] will return
+  /// true, and [getAccessToken], [getUserInfo], etc. will work normally.
+  ///
+  /// Example:
+  /// ```dart
+  /// // In your WebView's navigation handler:
+  /// if (url.startsWith(session.redirectUri)) {
+  ///   await logtoClient.completeSignIn(session, url);
+  /// }
+  /// ```
+  Future<void> completeSignIn(SignInSession session, String callbackUri) async {
+    final httpClient = _httpClient ?? http.Client();
+
+    try {
+      final code = logto_core.verifyAndParseCodeFromCallbackUri(
+        callbackUri,
+        session.redirectUri,
+        session.state,
+      );
+
+      final oidcConfig = await _getOidcConfig(httpClient);
+
+      final tokenResponse = await logto_core.fetchTokenByAuthorizationCode(
+        httpClient: httpClient,
+        tokenEndPoint: oidcConfig.tokenEndpoint,
+        code: code,
+        codeVerifier: session.pkce.codeVerifier,
+        clientId: config.appId,
+        redirectUri: session.redirectUri,
+      );
+
+      final idToken = IdToken.unverified(tokenResponse.idToken);
+
+      await _verifyIdToken(idToken, oidcConfig);
+
+      await _tokenStorage.save(
+          idToken: idToken,
+          accessToken: tokenResponse.accessToken,
+          refreshToken: tokenResponse.refreshToken,
+          expiresIn: tokenResponse.expiresIn,
+          scopes: tokenResponse.scope.split(' '));
+    } finally {
+      _loading = false;
+      if (_httpClient == null) httpClient.close();
+    }
+  }
+
+  /// Get the token response from a sign-in callback without storing tokens.
+  ///
+  /// This is similar to [completeSignIn] but returns the raw token response
+  /// instead of storing it in the SDK's token storage. Useful when you need
+  /// to handle token storage yourself.
+  ///
+  /// The ID token is still verified for security.
+  Future<LogtoCodeTokenResponse> completeSignInAndGetTokens(
+      SignInSession session, String callbackUri) async {
+    final httpClient = _httpClient ?? http.Client();
+
+    try {
+      final code = logto_core.verifyAndParseCodeFromCallbackUri(
+        callbackUri,
+        session.redirectUri,
+        session.state,
+      );
+
+      final oidcConfig = await _getOidcConfig(httpClient);
+
+      final tokenResponse = await logto_core.fetchTokenByAuthorizationCode(
+        httpClient: httpClient,
+        tokenEndPoint: oidcConfig.tokenEndpoint,
+        code: code,
+        codeVerifier: session.pkce.codeVerifier,
+        clientId: config.appId,
+        redirectUri: session.redirectUri,
+      );
+
+      // Still verify the ID token for security
+      final idToken = IdToken.unverified(tokenResponse.idToken);
+      await _verifyIdToken(idToken, oidcConfig);
+
+      // Also store in SDK storage so isAuthenticated, getAccessToken, etc. work
+      await _tokenStorage.save(
+          idToken: idToken,
+          accessToken: tokenResponse.accessToken,
+          refreshToken: tokenResponse.refreshToken,
+          expiresIn: tokenResponse.expiresIn,
+          scopes: tokenResponse.scope.split(' '));
+
+      return tokenResponse;
+    } finally {
+      _loading = false;
+      if (_httpClient == null) httpClient.close();
+    }
+  }
+
+  /// Sign out without opening a browser.
+  ///
+  /// This method revokes the refresh token and clears all stored tokens
+  /// without requiring a browser redirect to the end session endpoint.
+  /// Use this when you manage the sign-in flow with a custom WebView
+  /// and don't want to open a browser for sign-out.
+  ///
+  /// Optionally, you can get the [signOutUri] to load in your WebView
+  /// for a complete server-side session cleanup.
+  Future<void> signOutWithoutBrowser() async {
+    final idToken = await _tokenStorage.idToken;
+
+    final httpClient = _httpClient ?? http.Client();
+
+    if (idToken == null) {
+      throw LogtoAuthException(
+          LogtoAuthExceptions.authenticationError, 'not authenticated');
+    }
+
+    try {
+      final oidcConfig = await _getOidcConfig(httpClient);
+
+      // Revoke refresh token if it exists
+      final refreshToken = await _tokenStorage.refreshToken;
+
+      if (refreshToken != null) {
+        try {
+          await logto_core.revoke(
+            httpClient: httpClient,
+            revocationEndpoint: oidcConfig.revocationEndpoint,
+            clientId: config.appId,
+            token: refreshToken,
+          );
+        } catch (e) {
+          // Silently handle revocation errors
+        }
+      }
+
+      await _tokenStorage.clear();
+    } finally {
+      if (_httpClient == null) {
+        httpClient.close();
+      }
+    }
+  }
+
+  /// Generate the sign-out URI for use with a custom WebView.
+  ///
+  /// Load this URI in your WebView to clear the server-side session.
+  /// This is optional - [signOutWithoutBrowser] already revokes tokens
+  /// and clears local storage.
+  Future<Uri> getSignOutUri(String redirectUri) async {
+    final httpClient = _httpClient ?? http.Client();
+
+    try {
+      final oidcConfig = await _getOidcConfig(httpClient);
+
+      return logto_core.generateSignOutUri(
+        endSessionEndpoint: oidcConfig.endSessionEndpoint,
+        clientId: config.appId,
+        postLogoutRedirectUri: Uri.parse(redirectUri),
+      );
+    } finally {
+      if (_httpClient == null) httpClient.close();
     }
   }
 
