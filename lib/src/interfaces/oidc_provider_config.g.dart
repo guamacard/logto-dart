@@ -16,7 +16,7 @@ OidcProviderConfig _$OidcProviderConfigFromJson(Map<String, dynamic> json) {
       'revocation_endpoint',
       'jwks_uri',
       'issuer',
-      'userinfo_endpoint'
+      'userinfo_endpoint',
     ],
     disallowNullValues: const [
       'authorization_endpoint',
@@ -25,7 +25,7 @@ OidcProviderConfig _$OidcProviderConfigFromJson(Map<String, dynamic> json) {
       'revocation_endpoint',
       'jwks_uri',
       'issuer',
-      'userinfo_endpoint'
+      'userinfo_endpoint',
     ],
   );
   return OidcProviderConfig(

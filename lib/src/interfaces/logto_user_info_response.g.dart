@@ -7,7 +7,8 @@ part of 'logto_user_info_response.dart';
 // **************************************************************************
 
 LogtoUserInfoResponse _$LogtoUserInfoResponseFromJson(
-    Map<String, dynamic> json) {
+  Map<String, dynamic> json,
+) {
   $checkKeys(
     json,
     requiredKeys: const ['sub'],
@@ -17,6 +18,7 @@ LogtoUserInfoResponse _$LogtoUserInfoResponseFromJson(
     sub: json['sub'] as String,
     username: json['username'] as String?,
     name: json['name'] as String?,
+    nickname: json['nickname'] as String?,
     picture: json['picture'] as String?,
     email: json['email'] as String?,
     emailVerified: json['email_verified'] as bool?,
@@ -25,6 +27,9 @@ LogtoUserInfoResponse _$LogtoUserInfoResponseFromJson(
     customData: json['custom_data'] as Map<String, dynamic>?,
     identities: json['identities'] as Map<String, dynamic>?,
     roles: (json['roles'] as List<dynamic>?)?.map((e) => e as String).toList(),
+    permissions: (json['permissions'] as List<dynamic>?)
+        ?.map((e) => e as String)
+        .toList(),
     organizations: (json['organizations'] as List<dynamic>?)
         ?.map((e) => e as String)
         .toList(),
@@ -38,23 +43,22 @@ LogtoUserInfoResponse _$LogtoUserInfoResponseFromJson(
 }
 
 Map<String, dynamic> _$LogtoUserInfoResponseToJson(
-        LogtoUserInfoResponse instance) =>
-    <String, dynamic>{
-      'sub': instance.sub,
-      if (instance.username case final value?) 'username': value,
-      if (instance.name case final value?) 'name': value,
-      if (instance.picture case final value?) 'picture': value,
-      if (instance.email case final value?) 'email': value,
-      if (instance.emailVerified case final value?) 'email_verified': value,
-      if (instance.phoneNumber case final value?) 'phone_number': value,
-      if (instance.phoneNumberVerified case final value?)
-        'phone_number_verified': value,
-      if (instance.customData case final value?) 'custom_data': value,
-      if (instance.identities case final value?) 'identities': value,
-      if (instance.roles case final value?) 'roles': value,
-      if (instance.organizations case final value?) 'organizations': value,
-      if (instance.organizationRoles case final value?)
-        'organization_roles': value,
-      if (instance.organizationData case final value?)
-        'organization_data': value,
-    };
+  LogtoUserInfoResponse instance,
+) => <String, dynamic>{
+  'sub': instance.sub,
+  'username': ?instance.username,
+  'name': ?instance.name,
+  'nickname': ?instance.nickname,
+  'picture': ?instance.picture,
+  'email': ?instance.email,
+  'email_verified': ?instance.emailVerified,
+  'phone_number': ?instance.phoneNumber,
+  'phone_number_verified': ?instance.phoneNumberVerified,
+  'custom_data': ?instance.customData,
+  'identities': ?instance.identities,
+  'roles': ?instance.roles,
+  'permissions': ?instance.permissions,
+  'organizations': ?instance.organizations,
+  'organization_roles': ?instance.organizationRoles,
+  'organization_data': ?instance.organizationData,
+};

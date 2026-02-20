@@ -7,7 +7,8 @@ part of 'logto_refresh_token_response.dart';
 // **************************************************************************
 
 LogtoRefreshTokenResponse _$LogtoRefreshTokenResponseFromJson(
-    Map<String, dynamic> json) {
+  Map<String, dynamic> json,
+) {
   $checkKeys(
     json,
     requiredKeys: const ['access_token', 'scope', 'expires_in'],
@@ -23,11 +24,11 @@ LogtoRefreshTokenResponse _$LogtoRefreshTokenResponseFromJson(
 }
 
 Map<String, dynamic> _$LogtoRefreshTokenResponseToJson(
-        LogtoRefreshTokenResponse instance) =>
-    <String, dynamic>{
-      'access_token': instance.accessToken,
-      'refresh_token': instance.refreshToken,
-      'id_token': instance.idToken,
-      'scope': instance.scope,
-      'expires_in': instance.expiresIn,
-    };
+  LogtoRefreshTokenResponse instance,
+) => <String, dynamic>{
+  'access_token': instance.accessToken,
+  'refresh_token': instance.refreshToken,
+  'id_token': instance.idToken,
+  'scope': instance.scope,
+  'expires_in': instance.expiresIn,
+};

@@ -5,7 +5,7 @@ homepage: https://github.com/logto-io/dart
 documentation: https://docs.logto.io/sdk/flutter/
 
 environment:
-  sdk: "^3.6.0"
+  sdk: "^3.8.0"
   flutter: ">=1.17.0"
 
 dependencies:
