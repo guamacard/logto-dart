@@ -12,6 +12,9 @@ abstract mixin class UserInfo implements JsonObject {
   /// Username of the user.
   String? get username => this['username'];
 
+  /// Nickname of the user.
+  String? get nickname => this['nickname'];
+
   /// URL of the user's profile picture.
   String? get picture => this['picture'];
 
@@ -29,6 +32,9 @@ abstract mixin class UserInfo implements JsonObject {
 
   /// Roles that the user has for API resources.
   List<String>? get roles => this['roles'];
+
+  /// Permissions that the user has for API resources.
+  List<String>? get permissions => this['permissions'];
 
   /// Organization IDs that the user has membership in.
   List<String>? get organizations => this['organizations'];

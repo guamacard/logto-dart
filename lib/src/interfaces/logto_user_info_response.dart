@@ -11,6 +11,8 @@ class LogtoUserInfoResponse {
   final String? username;
   @JsonKey(name: 'name')
   final String? name;
+  @JsonKey(name: 'nickname')
+  final String? nickname;
   @JsonKey(name: 'picture')
   final String? picture;
   @JsonKey(name: 'email')
@@ -27,6 +29,8 @@ class LogtoUserInfoResponse {
   final Map<String, dynamic>? identities;
   @JsonKey(name: 'roles')
   final List<String>? roles;
+  @JsonKey(name: 'permissions')
+  final List<String>? permissions;
   @JsonKey(name: 'organizations')
   final List<String>? organizations;
   @JsonKey(name: 'organization_roles')
@@ -38,6 +42,7 @@ class LogtoUserInfoResponse {
     required this.sub,
     this.username,
     this.name,
+    this.nickname,
     this.picture,
     this.email,
     this.emailVerified,
@@ -46,6 +51,7 @@ class LogtoUserInfoResponse {
     this.customData,
     this.identities,
     this.roles,
+    this.permissions,
     this.organizations,
     this.organizationRoles,
     this.organizationData,
